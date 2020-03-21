@@ -1,0 +1,110 @@
+\documentclass[UTF8,zihao=-4]{ctexart}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{forest}
+\usepackage{tikz}
+\lstset{
+	language=C++,
+	breaklines,
+	tabsize=4,
+	basicstyle=\ttfamily \small
+}
+\geometry{a4paper,centering,scale=0.8}
+\title{\heiti 计算方法\quad 第一次实验}
+\author{PB17000005\quad \CJKfontspec{AR PL UKai CN} 赵作竑}
+\date{\kaishu \today}
+\begin{document}
+	\maketitle
+	\paragraph{关于精度}IEEE标准的浮点数，单精度浮点有23位用于表示数值部分，外加省略的1位，一共是24位。$10^7<2^24=16777216<10^8$，也就是说单精度浮点数最多可以表示7位十进制有效数字。因此，问题一只取7位有效数字，而并非题目里面的12位尾数。至于双精度，有53位，$10^{16}<2^53=16777216<10^{17}$，因此双精度浮点数能够表示16位二进制有效数字。
+	\paragraph{问题一} 使用C语言编写程序，进行求解。
+	\begin{lstlisting}
+#include <stdio.h>
+#include <math.h>
+
+float f(float x) {
+    return sqrtf(x * x + 9) - 3;
+}
+
+float g(float x) {
+    return x * x / (sqrtf(x * x + 9) + 3);
+}
+
+int main() {
+    float x[11];
+    x[0] = 1;
+    printf("x                   ");
+    printf("sqrt(x^2+9)-3       ");
+    printf("x^2/((sqrt(x^2+9)+3)\n");
+    for (int i = 1; i <= 10; ++i) {
+        x[i] = x[i - 1] / (float) 8.0;
+        printf("%-20e", x[i]);
+        printf("%-20e", f(x[i]));
+        printf("%-20e\n", g(x[i]));
+    }
+    return 0;
+}
+	\end{lstlisting}
+	可得计算结果如下表所示：
+	\begin{lstlisting}
+x                   sqrt(x^2+9)-3       x^2/((sqrt(x^2+9)+3)
+1.250000e-01        2.603054e-03        2.603037e-03        
+1.562500e-02        4.076958e-05        4.068983e-05        
+1.953125e-03        7.152557e-07        6.357828e-07        
+2.441406e-04        0.000000e+00        9.934108e-09        
+3.051758e-05        0.000000e+00        1.552204e-10        
+3.814697e-06        0.000000e+00        2.425319e-12        
+4.768372e-07        0.000000e+00        3.789561e-14        
+5.960464e-08        0.000000e+00        5.921190e-16        
+7.450581e-09        0.000000e+00        9.251859e-18        
+9.313226e-10        0.000000e+00        1.445603e-19
+	\end{lstlisting}
+	从这两种结果来看，我认为第二种方法的结果更可靠，因为当$x\to 0$时，按照$f(x)$计算，$\sqrt{x^2+9}\to 3$，两者相减，有效位数大多用于表示两者相同的位数，而不同的位数已经超出了有效位数的范围，所以很多结果都是0。而第二种方法，当$x\to 0$时，$\sqrt{x^2+9}+3\to 6$，结果更为可靠。
+	\paragraph{问题二}用C语言编写程序：
+	\begin{lstlisting}
+#include <stdio.h>
+
+int main() {
+    double arr[5] = {
+            4040.045551380452,
+            -2759471.276702747,
+            -31.64291531266504,
+            2755462.874010974,
+            0.0000557052996742893
+    };
+    double sum[3];
+    sum[0] = 0;
+    for (int i = 0; i < 5; ++i) {
+        sum[0] += arr[i];
+        sum[1] += arr[4 - i];
+    }
+    double tmp1 = arr[3], tmp2 = arr[1];
+    tmp1 += arr[0];
+    tmp1 += arr[4];
+    tmp2 += arr[2];
+    sum[2] = tmp1 + tmp2;
+    printf("             Result\n");
+    printf("Method(a)    %-7e\n", sum[0]);
+    printf("Method(b)    %-7e\n", sum[1]);
+    printf("Method(c)    %-7e\n", sum[2]);
+
+    return 0;
+}
+	\end{lstlisting}
+	可得计算结果如下表所示：
+	\begin{lstlisting}
+             Result
+Method(a)    1.025188e-10
+Method(b)    -1.564331e-10
+Method(c)    0.000000e+00
+	\end{lstlisting}
+	那么哪种计算顺序更为精确呢？最精确的计算结果约为$8\times 10^{-11}$，更接近第一种方法的结果。但是，这并不说明第一种方法是一种好方法。
+	
+	第一种和第二种方法完全按照数字给的顺序相加，本质上是相同，可以看到，如果正向计算，误差很小约为$2\times 10^{-11}$，反向计算，误差很大，约为$2\times 10^{-10}$，相差了一个量级，完全是不可控的，说白了，就是``蒙''而已。
+	
+	那么第三种方法又如何呢？首先，我们可以看到，结果是一个很小的值，也就是前面的很多位，最后相加都变成了零。如果两个指数相差很大的数字相加，又会导致指数较小的那个数字损失很多有效位数。但是如果大小相近的数字相减，会导致结果的有效数字很少，产生较大的误差，就算指数较小的数字的有效位数没有损失，前面相减产生的误差也使这个失去了意义。两相比较，就要舍弃指数较小的数字的有效数字的位数。至于求和顺序，我认为从大到小不如从小到大的误差小，不过这一步产生的误差在可以接受的范围内。最后一步，两个数字相减，有效位数所剩无几。
+\end{document}
